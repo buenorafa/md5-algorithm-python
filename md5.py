@@ -40,6 +40,19 @@ class MD5:
         # the preprocessed message length will be a multiple of 512 bits.
         return preprocessed_message
     
+    # Step 3. Initialize MD5 Buffer return initial values defined in the rfc
+    @staticmethod
+    def initialize_md_buffer():
+        A = 0x67452301
+        B = 0xEFCDAB89
+        C = 0x98BADCFE
+        D = 0x10325476
+        
+        return A, B, C, D
+    
+    
+    
+    
     
 
 
