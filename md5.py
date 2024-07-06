@@ -49,6 +49,17 @@ class MD5:
         D = 0x10325476
         
         return A, B, C, D
+   
+   # Step 4. 
+    @classmethod
+    def digest(cls, preprocessed_message):
+        # Auxiliary functions defined in RFC
+        # each take as input three 32-bit words and return one 32-bit word 
+        F = lambda x, y, z: (x & y) | (~x & z)
+        G = lambda x, y, z: (x & z) | (y & ~z)
+        H = lambda x, y, z: x ^ y ^ z
+        I = lambda x, y, z: y ^ (x | ~z)
+        
     
     
     
