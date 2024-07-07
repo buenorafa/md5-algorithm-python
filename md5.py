@@ -54,7 +54,7 @@ class MD5:
 
     # Step 4.
     @classmethod
-    def digest(cls, preprocessed_message):
+    def process_message(cls, preprocessed_message):
         # Auxiliary functions defined in RFC
         # each take as input three 32-bit words and return one 32-bit word
         F = lambda x, y, z: (x & y) | (~x & z)
@@ -68,5 +68,51 @@ class MD5:
         # Define the left rotation function, which rotates `x` left `n` bits.
         rotate_left = lambda x, n: (x << n) | (x >> (32 - n))
 
-        # Modular_add lambda ensures that the result of the addition will never exceed the 32-bit limit
-        modular_add = lambda x, y: (x + y) % 2**32
+        # All operations are wrapped with modulo 2**32 to ensure the result remains within the 32-bit limit
+        mod = 2**32
+
+        # Process the padded message in 512bits blocks
+        num_blocks = len(preprocessed_message) // 512
+
+        A, B, C, D = cls.initialize_md_buffer()
+
+        for block in range(num_blocks):
+            start = block * 512
+            # Break blocks into 16 words of 32bits
+            X = [
+                preprocessed_message[start + (x * 32) : start + (x * 32) + 32]
+                for x in range(16)
+            ]
+
+            a, b, c, d = A, B, C, D
+
+            for i in range(64):
+                if i in range(15):
+                    aux = F(b, c, d)
+                    k = i
+                    s = [7, 12, 17, 22]
+                elif i in range(16, 31):
+                    aux = G(b, c, d)
+                    k = (5 * i + 1) % 16
+                    s = [5, 9, 14, 20]
+                elif i in range(32, 47):
+                    aux = H(b, c, d)
+                    k = (3 * i + 5) % 16
+                    s = [4, 11, 16, 23]
+                elif i in range(48, 63):
+                    aux = I(b, c, d)
+                    k = (7 * i) % 16
+                    s = [6, 10, 15, 21]
+
+                aux += (X[k] + T[i] + a) % mod
+                # Swap
+                a = d
+                d = c
+                c = b
+                b = (b + rotate_left(aux, s[i % 4])) % mod
+            # Update buffer
+            A = (A + a) % mod
+            B = (B + b) % mod
+            C = (C + c) % mod
+            D = (D + d) % mod
+        return A, B, C, D
