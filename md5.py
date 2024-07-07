@@ -5,7 +5,14 @@ from cmath import sin
 class MD5:
     _message = None
 
+    @staticmethod
+    def string_to_bit_sequence(s):
+        # Converte a string para uma sequência de bits
+        bit_sequence = "".join(format(ord(char), "08b") for char in s)
+        return bit_sequence
+
     # Step 1. Add Padding Bits: bit_sequence length mod 512 has to be equal to 448
+    @classmethod
     def add_padding_bits(cls):
         # Convert the message to a bit sequence
         bit_sequence = string_to_bit_sequence(cls._message)
@@ -115,4 +122,20 @@ class MD5:
             B = (B + b) % mod
             C = (C + c) % mod
             D = (D + d) % mod
-        return A, B, C, D
+        return [A, B, C, D]
+
+    # Step 5.
+    staticmethod
+
+    def formatted_output(words):
+        output = ""
+        for word in words:
+            # Transforma as palavras em little endian
+            bytes_little_endian = word.to_byte(4, byteorder="little", signed=False)
+            # Converte os bytes para uma representação hexadecimal
+            hex_representation = "".join(
+                format(byte, "02x") for byte in bytes_little_endian
+            )
+            # Concatena numa string
+            output += hex_representation
+        return output
