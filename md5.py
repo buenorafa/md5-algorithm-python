@@ -1,9 +1,18 @@
-from utils import string_to_bit_sequence
+# from utils import string_to_bit_sequence
 from cmath import sin
 
 
 class MD5:
     _message = None
+
+    # Organizar esse método : TODO
+    @classmethod
+    def digest(cls, message):
+        cls._message = message
+
+        preprocessed_message = cls.append_length(cls.add_padding_bits())
+        # Process & Output
+        return cls.formatted_output(cls.process_message(preprocessed_message))
 
     @staticmethod
     def string_to_bit_sequence(s):
@@ -15,13 +24,13 @@ class MD5:
     @classmethod
     def add_padding_bits(cls):
         # Convert the message to a bit sequence
-        bit_sequence = string_to_bit_sequence(cls._message)
+        bit_sequence = cls.string_to_bit_sequence(cls._message)
 
         # Append '1' as per MD5 padding requirements
         padded_bit_sequence = bit_sequence + "1"
 
         # Calculate the number of '0's needed to pad the sequence
-        remaining_bits_len = (448 - len(bit_sequence) % 512) % 512
+        remaining_bits_len = (448 - (len(bit_sequence) + 1) % 512) % 512
         padded_bit_sequence += "0" * remaining_bits_len
 
         return padded_bit_sequence
@@ -31,13 +40,14 @@ class MD5:
     @classmethod
     def append_length(cls, padded_bit_sequence):
         # Convert the original string to a bit sequence
-        bit_sequence = string_to_bit_sequence(cls._message)
+        bit_sequence = cls.string_to_bit_sequence(cls._message)
 
         # Get the size of the original message in bits
         size = len(bit_sequence)
 
         # Convert the size to a 64-bit representation in little-endian format
-        size_64bits = (size * 8).to_bytes(8, byteorder="little", signed=False)
+        # size_64bits = (size * 8).to_bytes(8, byteorder="little", signed=False)
+        size_64bits = (size).to_bytes(8, byteorder="little", signed=False)
 
         # Convert bytes to bits
         size_bit_sequence = "".join(format(byte, "08b") for byte in size_64bits)
@@ -87,31 +97,49 @@ class MD5:
             start = block * 512
             # Break blocks into 16 words of 32bits
             X = [
-                preprocessed_message[start + (x * 32) : start + (x * 32) + 32]
+                int(preprocessed_message[start + (x * 32) : start + (x * 32) + 32], 2)
                 for x in range(16)
             ]
 
             a, b, c, d = A, B, C, D
 
+            # for i in range(64):
+            #     if i in range(15):
+            #         aux = F(b, c, d)
+            #         k = i
+            #         s = [7, 12, 17, 22]
+            #     elif i in range(16, 31):
+            #         aux = G(b, c, d)
+            #         k = (5 * i + 1) % 16
+            #         s = [5, 9, 14, 20]
+            #     elif i in range(32, 47):
+            #         aux = H(b, c, d)
+            #         k = (3 * i + 5) % 16
+            #         s = [4, 11, 16, 23]
+            #     elif i in range(48, 63):
+            #         aux = I(b, c, d)
+            #         k = (7 * i) % 16
+            #         s = [6, 10, 15, 21]
+
             for i in range(64):
-                if i in range(15):
+                if 0 <= i <= 15:
                     aux = F(b, c, d)
                     k = i
                     s = [7, 12, 17, 22]
-                elif i in range(16, 31):
+                elif 16 <= i <= 31:
                     aux = G(b, c, d)
                     k = (5 * i + 1) % 16
                     s = [5, 9, 14, 20]
-                elif i in range(32, 47):
+                elif 32 <= i <= 47:
                     aux = H(b, c, d)
                     k = (3 * i + 5) % 16
                     s = [4, 11, 16, 23]
-                elif i in range(48, 63):
+                else:
                     aux = I(b, c, d)
                     k = (7 * i) % 16
                     s = [6, 10, 15, 21]
 
-                aux += (X[k] + T[i] + a) % mod
+                aux = (aux + X[k] + T[i] + a) % mod
                 # Swap
                 a = d
                 d = c
@@ -131,7 +159,7 @@ class MD5:
         output = ""
         for word in words:
             # Transforma as palavras em little endian
-            bytes_little_endian = word.to_byte(4, byteorder="little", signed=False)
+            bytes_little_endian = word.to_bytes(4, byteorder="little", signed=False)
             # Converte os bytes para uma representação hexadecimal
             hex_representation = "".join(
                 format(byte, "02x") for byte in bytes_little_endian
