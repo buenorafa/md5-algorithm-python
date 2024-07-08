@@ -1,59 +1,47 @@
-# from utils import string_to_bit_sequence
 from cmath import sin
 
 
 class MD5:
     _message = None
 
-    # Organizar esse método : TODO
     @classmethod
     def digest(cls, message):
         cls._message = message
-
-        preprocessed_message = cls.append_length(cls.add_padding_bits())
-        # Process & Output
-        return cls.formatted_output(cls.process_message(preprocessed_message))
-
-    @staticmethod
-    def string_to_bit_sequence(s):
-        # Converte a string para uma sequência de bits
-        bit_sequence = "".join(format(ord(char), "08b") for char in s)
-        return bit_sequence
+        # Step 1:
+        padded_bits = cls.add_padding_bits()
+        # Step 2:
+        preprocessed_message = cls.append_length(padded_bits)
+        # Step 3 & 4:
+        processed_message = cls.process_message(preprocessed_message)
+        # Step 5:
+        return cls.formatted_output(processed_message)
 
     # Step 1. Add Padding Bits: bit_sequence length mod 512 has to be equal to 448
     @classmethod
     def add_padding_bits(cls):
         # Convert the message to a bit sequence
-        bit_sequence = cls.string_to_bit_sequence(cls._message)
+        message_bytes = cls._message.encode()
 
         # Append '1' as per MD5 padding requirements
-        padded_bit_sequence = bit_sequence + "1"
+        message_bytes += b"\x80"
 
-        # Calculate the number of '0's needed to pad the sequence
-        remaining_bits_len = (448 - (len(bit_sequence) + 1) % 512) % 512
-        padded_bit_sequence += "0" * remaining_bits_len
+        # Add '0's needed to pad the message
+        while (len(message_bytes) * 8) % 512 != 448:
+            message_bytes += b"\x00"
 
-        return padded_bit_sequence
+        return message_bytes
 
     # Step 2. This class method appends the 64-bit representation of the original message size,
     # in little-endian format (least significant byte first), to the padded bit sequence.
     @classmethod
-    def append_length(cls, padded_bit_sequence):
-        # Convert the original string to a bit sequence
-        bit_sequence = cls.string_to_bit_sequence(cls._message)
-
-        # Get the size of the original message in bits
-        size = len(bit_sequence)
+    def append_length(cls, padded_message):
+        # Message's size in bits
+        original_size = len(cls._message * 8)
 
         # Convert the size to a 64-bit representation in little-endian format
-        # size_64bits = (size * 8).to_bytes(8, byteorder="little", signed=False)
-        size_64bits = (size).to_bytes(8, byteorder="little", signed=False)
-
-        # Convert bytes to bits
-        size_bit_sequence = "".join(format(byte, "08b") for byte in size_64bits)
-
+        size_64bits = (original_size).to_bytes(8, byteorder="little", signed=False)
         # Concatenate the 64 bits representing the size to the padded bit sequence
-        preprocessed_message = padded_bit_sequence + size_bit_sequence
+        preprocessed_message = padded_message + size_64bits
 
         # After these two preprocessing steps (adding padding bits and appending length),
         # the preprocessed message length will be a multiple of 512 bits.
@@ -83,54 +71,34 @@ class MD5:
         T = [int(4294967296 * abs(sin(i + 1))) for i in range(64)]
 
         # Define the left rotation function, which rotates `x` left `n` bits.
-        rotate_left = lambda x, n: (x << n) | (x >> (32 - n))
+        rotate_left = (
+            lambda x, c: ((x & 0xFFFFFFFF) << c | (x & 0xFFFFFFFF) >> (32 - c))
+            & 0xFFFFFFFF
+        )
 
         # All operations are wrapped with modulo 2**32 to ensure the result remains within the 32-bit limit
         mod = 2**32
 
-        # Process the padded message in 512bits blocks
-        num_blocks = len(preprocessed_message) // 512
-
+        # Initial buffer
         A, B, C, D = cls.initialize_md_buffer()
 
-        for block in range(num_blocks):
-            start = block * 512
-            # Break blocks into 16 words of 32bits
-            X = [
-                int(preprocessed_message[start + (x * 32) : start + (x * 32) + 32], 2)
-                for x in range(16)
-            ]
+        for n in range(0, len(preprocessed_message), 64):
+            chunk = preprocessed_message[n : n + 64]
+
+            X = [int.from_bytes(chunk[j : j + 4], "little") for j in range(0, 64, 4)]
 
             a, b, c, d = A, B, C, D
 
-            # for i in range(64):
-            #     if i in range(15):
-            #         aux = F(b, c, d)
-            #         k = i
-            #         s = [7, 12, 17, 22]
-            #     elif i in range(16, 31):
-            #         aux = G(b, c, d)
-            #         k = (5 * i + 1) % 16
-            #         s = [5, 9, 14, 20]
-            #     elif i in range(32, 47):
-            #         aux = H(b, c, d)
-            #         k = (3 * i + 5) % 16
-            #         s = [4, 11, 16, 23]
-            #     elif i in range(48, 63):
-            #         aux = I(b, c, d)
-            #         k = (7 * i) % 16
-            #         s = [6, 10, 15, 21]
-
             for i in range(64):
-                if 0 <= i <= 15:
+                if i < 16:
                     aux = F(b, c, d)
                     k = i
                     s = [7, 12, 17, 22]
-                elif 16 <= i <= 31:
+                elif i < 32:
                     aux = G(b, c, d)
                     k = (5 * i + 1) % 16
                     s = [5, 9, 14, 20]
-                elif 32 <= i <= 47:
+                elif i < 48:
                     aux = H(b, c, d)
                     k = (3 * i + 5) % 16
                     s = [4, 11, 16, 23]
@@ -140,30 +108,24 @@ class MD5:
                     s = [6, 10, 15, 21]
 
                 aux = (aux + X[k] + T[i] + a) % mod
-                # Swap
                 a = d
                 d = c
                 c = b
                 b = (b + rotate_left(aux, s[i % 4])) % mod
-            # Update buffer
+
             A = (A + a) % mod
             B = (B + b) % mod
             C = (C + c) % mod
             D = (D + d) % mod
+
         return [A, B, C, D]
 
     # Step 5.
     staticmethod
 
-    def formatted_output(words):
-        output = ""
-        for word in words:
-            # Transforma as palavras em little endian
-            bytes_little_endian = word.to_bytes(4, byteorder="little", signed=False)
-            # Converte os bytes para uma representação hexadecimal
-            hex_representation = "".join(
-                format(byte, "02x") for byte in bytes_little_endian
-            )
-            # Concatena numa string
-            output += hex_representation
-        return output
+    def formatted_output(processed_registers):
+        output = b""
+        for register in processed_registers:
+            # Convert to little endian
+            output += register.to_bytes(4, byteorder="little", signed=False)
+        return output.hex()
